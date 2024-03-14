@@ -7,12 +7,20 @@ import Graphics.Gloss.Interface.Pure.Game
 import View
 
 screenToBoard :: (Float, Float) -> (Int, Int)
-screenToBoard (x, y) =
-  let boardX = round $ (x + boardOffset) / squareSize
-      boardY = round $ -(y + boardOffset) / squareSize
-  in if isOnBoard boardX && isOnBoard boardY
-      then (boardX, boardY)
-      else (-1, -1)
+screenToBoard (x, y) = (locate y, locate x)
+
+locate :: Float -> Int
+locate x 
+  | x > -300 && x < -225 = 0 
+  | x > -225 && x < -150 = 1
+  | x > -150 && x < -75 = 2 
+  | x > -75 && x < 0 = 3 
+  | x > 0 && x < 75 = 4 
+  | x > 75 && x < 150 = 5
+  | x > 150 && x < 225 = 6 
+  | x > 225 && x < 300 = 7
+  | otherwise = -1
+
 
 isOnBoard :: Int -> Bool
 isOnBoard pos = pos >= 0 && pos <= 7 
@@ -55,3 +63,6 @@ renderCoordinateText (x, y) =
       translatedX = x + 10
       translatedY = y + 10
     in translate translatedX translatedY $ scale 0.1 0.1 $ color black $ text coordinates
+
+
+

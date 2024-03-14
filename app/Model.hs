@@ -64,13 +64,16 @@ initialGameState = GameState
 setPiece :: Board -> (Int, Int) -> Square -> Board
 setPiece chessBoard pos piece = chessBoard // [(pos, piece)]
 
+getPiece :: Board -> (Int, Int) -> Square
+getPiece chessBoard pos = chessBoard ! pos
+
 movePiece :: (Int, Int) -> (Int, Int) -> Chess ()
 movePiece from to = do
   gameState <- get
   let piece = board gameState ! from
       updatedBoard  = setPiece (board gameState) to piece
       updatedBoard' = setPiece updatedBoard from Empty
-  put gameState { board = updatedBoard' , selectedSquare = Nothing }
+  put gameState { board = updatedBoard' , selectedSquare = Nothing}
 
 main :: IO ()
 main = putStrLn "♔"
