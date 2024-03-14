@@ -2,11 +2,12 @@ module Model where
 
 import Data.Array
 import Control.Monad.State
+
 data PieceType = Pawn | Knight | Bishop | Rook | Queen | King deriving (Eq, Ord) 
 
 data PieceColor = White | Black deriving (Eq, Ord)
 
-data Square = Empty | Occupied PieceType PieceColor deriving Eq
+data Square = Empty | Occupied PieceType PieceColor 
 
 type Board = Array (Int, Int) Square
 
@@ -17,6 +18,7 @@ data GameState = GameState
   , canCastleQueenSide :: (Bool, Bool) -- White, Black
   , enPassant :: Maybe (Int, Int)
   , selectedSquare :: Maybe (Int, Int)
+  , mouseCoordinates :: (Float, Float)
   }
 
 type Chess a = State GameState a
@@ -56,17 +58,19 @@ initialGameState = GameState
   , canCastleQueenSide = (True, True)
   , enPassant = Nothing
   , selectedSquare = Nothing
+  , mouseCoordinates = (0, 0)
   }
 
 setPiece :: Board -> (Int, Int) -> Square -> Board
-setPiece board pos piece = board // [(pos, piece)]
+setPiece chessBoard pos piece = chessBoard // [(pos, piece)]
 
 movePiece :: (Int, Int) -> (Int, Int) -> Chess ()
 movePiece from to = do
   gameState <- get
   let piece = board gameState ! from
-  put $ gameState { board = setPiece (board gameState) to piece }
-  put $ gameState { board = setPiece (board gameState) from Empty }
+      updatedBoard  = setPiece (board gameState) to piece
+      updatedBoard' = setPiece updatedBoard from Empty
+  put gameState { board = updatedBoard' , selectedSquare = Nothing }
 
 main :: IO ()
 main = putStrLn "♔"

@@ -14,6 +14,12 @@ boardSize = (round $ 8 * squareSize, round $ 8 * squareSize)
 boardOffset :: Float
 boardOffset = 3.5 * squareSize
 
+boardWidth :: Float
+boardWidth = 8 * squareSize
+
+boardHeight :: Float
+boardHeight = 8 * squareSize
+
 lightSquareColor :: Color
 lightSquareColor = makeColorI 233 174 95 255 
 
@@ -56,11 +62,11 @@ loadPieceImages = do
 drawSquareContents :: PieceImages -> Square -> (Int, Int) -> Picture
 drawSquareContents images square (i, j) = 
   case square of
-    Occupied piece color 
+    Occupied pieceType pieceColor 
       -> translate 
          (fromIntegral j * squareSize - boardOffset) 
          (fromIntegral i * squareSize - boardOffset) 
-         $ images Map.! (piece, color)
+         $ images Map.! (pieceType, pieceColor)
     Empty 
       -> blank
 
