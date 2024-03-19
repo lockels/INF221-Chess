@@ -4,7 +4,6 @@ import Control.Monad.State
 import Graphics.Gloss
 import Model
 import Graphics.Gloss.Interface.Pure.Game
-import View
 
 screenToBoard :: (Float, Float) -> (Int, Int)
 screenToBoard (x, y) = (locate y, locate x)
@@ -20,7 +19,6 @@ locate x
   | x > 150 && x < 225 = 6 
   | x > 225 && x < 300 = 7
   | otherwise = -1
-
 
 isOnBoard :: Int -> Bool
 isOnBoard pos = pos >= 0 && pos <= 7 
@@ -55,7 +53,8 @@ handleEvent event = execState
                  >> handleMotion event
 
 mouseCoordinatesToString :: (Float, Float) -> String
-mouseCoordinatesToString (x, y) = "(" ++ show (round x) ++ ", " ++ show (round y) ++ ")"
+mouseCoordinatesToString (x, y) = "(" ++ show (round x :: Int) ++ ", "
+                                      ++ show (round y :: Int) ++ ")"
 
 renderCoordinateText :: (Float, Float) -> Picture
 renderCoordinateText (x, y) =
@@ -63,6 +62,3 @@ renderCoordinateText (x, y) =
       translatedX = x + 10
       translatedY = y + 10
     in translate translatedX translatedY $ scale 0.1 0.1 $ color black $ text coordinates
-
-
-
