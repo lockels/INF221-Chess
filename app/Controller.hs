@@ -47,10 +47,9 @@ handleMotion (EventMotion (x, y)) = do
 handleMotion _ = return ()
 
 handleEvent :: Event -> GameState -> GameState
-handleEvent event = execState 
-                  $ handleClick event 
-                 >> handleRelease event 
-                 >> handleMotion event
+handleEvent event gameState = case runChess (handleClick event >> handleRelease event >> handleMotion event) gameState of
+  (Right _, newState) -> newState
+  (Left errMsg, newState) -> newState
 
 mouseCoordinatesToString :: (Float, Float) -> String
 mouseCoordinatesToString (x, y) = "(" ++ show (round x :: Int) ++ ", "

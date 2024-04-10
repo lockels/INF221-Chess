@@ -20,5 +20,6 @@ main = do
   pieceImages <- loadPieceImages
   let boardRender gameState = pictures [ drawBoard
                                        , drawBoardState pieceImages gameState
+                                       , drawLegalMovesForPiece gameState (selectedSquare gameState)
                                        , renderCoordinateText (mouseCoordinates gameState)]
   play window background fps initialGameState boardRender handleEvent (const id)

@@ -1,39 +1,31 @@
 module Model where
 
+import Piece
+import Control.Monad.Except
 import Data.Array
+import Control.Monad
 import Control.Monad.State
 
-data PieceType = Pawn | Knight | Bishop | Rook | Queen | King deriving (Eq, Ord) 
+data Square = Empty | Occupied PieceType PieceColor deriving (Eq, Ord)
 
-data PieceColor = White | Black deriving (Eq, Ord)
+type Board = Array Position Square
 
-data Square = Empty | Occupied PieceType PieceColor 
+type Position = (Int, Int) 
 
-type Board = Array (Int, Int) Square
-
-data GameState = GameState 
+data GameState = GameState
   { board :: Board
   , currentPlayer :: PieceColor
   , canCastleKingSide :: (Bool, Bool) -- White, Black
   , canCastleQueenSide :: (Bool, Bool) -- White, Black
-  , enPassant :: Maybe (Int, Int)
-  , selectedSquare :: Maybe (Int, Int)
+  , enPassant :: Maybe Position
+  , selectedSquare :: Maybe Position
   , mouseCoordinates :: (Float, Float)
   }
 
-type Chess a = State GameState a
+type Chess a = ExceptT String (State GameState) a
 
-instance Show PieceType where
-  show Pawn = "♙"
-  show Knight = "♘"
-  show Bishop = "♗"
-  show Rook = "♖"
-  show Queen = "♕"
-  show King = "♔"
-
-instance Show PieceColor where
-  show White = "⚪"
-  show Black = "⚫"
+runChess :: Chess a -> GameState -> (Either String a, GameState)
+runChess chess = runState (runExceptT chess)
 
 instance Show Square where
   show Empty = "[]"
@@ -61,14 +53,26 @@ initialGameState = GameState
   , mouseCoordinates = (0, 0)
   }
 
-setPiece :: Board -> (Int, Int) -> Square -> Board
+setPiece :: Board -> Position -> Square -> Board
 setPiece chessBoard pos piece = chessBoard // [(pos, piece)]
 
-getPiece :: Board -> (Int, Int) -> Square
+getPiece :: Board -> Position -> Square
 getPiece chessBoard pos = chessBoard ! pos
 
-isLegalMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
-isLegalMove gameState from to 
+swapPlayer :: GameState -> GameState
+swapPlayer gameState = gameState { currentPlayer = nextPlayer }
+  where
+    nextPlayer = case currentPlayer gameState of
+      White -> Black
+      Black -> White
+
+isPlayerTurn :: GameState -> PieceColor -> Bool
+isPlayerTurn gameState pieceColor = currentPlayer gameState == pieceColor
+
+----- Legal Moves -----
+
+isLegalMove :: GameState -> Position -> Position -> Bool
+isLegalMove gameState from to
   | from == to = False
   | collidesWithOwnPiece gameState to = False
   | otherwise = case getPiece (board gameState) from of
@@ -81,54 +85,109 @@ isLegalMove gameState from to
         Queen  -> isLegalQueenMove gameState from to
         King   -> isLegalKingMove gameState from to
 
-collidesWithOwnPiece :: GameState -> (Int, Int) -> Bool
+legalMovesForPiece :: GameState -> Position -> [Position]
+legalMovesForPiece gameState from 
+  | not $ isPlayerTurn gameState (currentPlayer gameState) = []
+  | otherwise =  filter (isLegalMove gameState from) (range ((0, 0), (7, 7)))
+
+collidesWithOwnPiece :: GameState -> Position -> Bool
 collidesWithOwnPiece gameState to = case getPiece (board gameState) to of
   Empty -> False
   Occupied _ color -> color == currentPlayer gameState
 
-isLegalPawnMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
-isLegalPawnMove gameState (x, y) (x', y')
-  | x' == x + 1 && y' == y = True
-  | x' == x + 2 && y' == y = True
+isPathClear :: Board -> Position -> Position -> Bool
+isPathClear chessBoard from to
+  | isHorizontalMove from to = isHorizontalPathClear chessBoard from to
+  | isVerticalMove from to = isVerticalPathClear chessBoard from to
+  | isDiagonalMove from to = isDiagonalPathClear chessBoard from to
   | otherwise = False
 
-isLegalKnightMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
+isHorizontalPathClear :: Board -> Position -> Position -> Bool
+isHorizontalPathClear chessBoard (x, y1) (_, y2) = 
+  all (\y -> getPiece chessBoard (x, y) == Empty) [min y1 y2 + 1 .. max y1 y2 - 1]
+
+isVerticalPathClear :: Board -> Position -> Position -> Bool
+isVerticalPathClear chessBoard (x1, y) (x2, _) = 
+  all (\x -> getPiece chessBoard (x, y) == Empty) [min x1 x2 + 1 .. max x1 x2 - 1]
+
+isDiagonalPathClear :: Board -> Position -> Position -> Bool
+isDiagonalPathClear chessBoard (x1, y1) (x2, y2) =
+  all (\(x, y) -> getPiece chessBoard (x, y) == Empty) (zip (range x1 x2) (range y1 y2))
+  where
+    range a b
+      | a < b     = [a + 1 .. b - 1]
+      | otherwise = reverse [b + 1 .. a - 1]
+
+isCapture :: GameState -> Position -> Bool
+isCapture gameState pos = case getPiece (board gameState) pos of
+  Occupied _ color -> color /= currentPlayer gameState
+  Empty -> False
+
+isLegalPawnMove :: GameState -> Position -> Position -> Bool
+isLegalPawnMove gameState (x, y) (x', y') =
+  let movingForward = case currentPlayer gameState of -- Standard Move
+        White -> x' == x + 1 && y' == y && isSquareEmpty (board gameState) (x', y')
+        Black -> x' == x - 1 && y' == y && isSquareEmpty (board gameState) (x', y')
+      startingDoubleStep = case currentPlayer gameState of -- Double step at start
+        White -> x == 1 && x' == 3 && y' == y 
+              && isPathClear (board gameState) (x, y) (x', y')
+              && isSquareEmpty (board gameState) (x', y')
+        Black -> x == 6 && x' == 4 && y' == y 
+              && isPathClear (board gameState) (x, y) (x', y')
+              && isSquareEmpty (board gameState) (x', y')
+      diagonalCapture = case currentPlayer gameState of  -- Diagonal Capture
+        White -> x' == x + 1 && abs (y' - y) == 1 && isCapture gameState (x', y')
+        Black -> x' == x - 1 && abs (y' - y) == 1 && isCapture gameState (x', y')
+  in movingForward || startingDoubleStep || diagonalCapture
+
+isSquareEmpty :: Board -> Position -> Bool
+isSquareEmpty chessBoard pos = getPiece chessBoard pos == Empty
+
+isLegalKnightMove :: GameState -> Position -> Position -> Bool
 isLegalKnightMove gameState (x, y) (x', y')
   | abs (x' - x) == 2 && abs (y' - y) == 1 = True
   | abs (x' - x) == 1 && abs (y' - y) == 2 = True
   | otherwise = False
 
-isLegalBishopMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
-isLegalBishopMove gameState (x, y) (x', y')
-  | abs (x' - x) == abs (y' - y) = True
-  | otherwise = False
+isLegalRookMove :: GameState -> Position -> Position -> Bool
+isLegalRookMove gameState from to =
+  (isHorizontalMove from to || isVerticalMove from to) && isPathClear (board gameState) from to
 
-isLegalRookMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
-isLegalRookMove gameState (x, y) (x', y')
-  | x' == x || y' == y = True
-  | otherwise = False
+isLegalBishopMove :: GameState -> Position -> Position -> Bool
+isLegalBishopMove gameState from to =
+  isDiagonalMove from to && isPathClear (board gameState) from to
 
-isLegalQueenMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
-isLegalQueenMove gameState (x, y) (x', y')
-  | isLegalBishopMove gameState (x, y) (x', y') = True
-  | isLegalRookMove gameState (x, y) (x', y') = True
-  | otherwise = False
+isLegalQueenMove :: GameState -> Position -> Position -> Bool
+isLegalQueenMove gameState from to =
+  (isHorizontalMove from to || isVerticalMove from to || isDiagonalMove from to)
+  && isPathClear (board gameState) from to
 
-isLegalKingMove :: GameState -> (Int, Int) -> (Int, Int) -> Bool
+-- helper functions that define horizontal, vertical, and diagonal moves:
+isHorizontalMove :: Eq a => (a, b1) -> (a, b2) -> Bool
+isHorizontalMove (x, _) (x', _) = x == x'
+
+isVerticalMove :: Eq a1 => (a2, a1) -> (a3, a1) -> Bool
+isVerticalMove (_, y) (_, y') = y == y'
+
+isDiagonalMove :: (Eq a, Num a) => (a, a) -> (a, a) -> Bool
+isDiagonalMove (x, y) (x', y') = abs (x' - x) == abs (y' - y)
+
+isLegalKingMove :: GameState -> Position -> Position -> Bool
 isLegalKingMove gameState (x, y) (x', y')
   | abs (x' - x) <= 1 && abs (y' - y) <= 1 = True
   | otherwise = False
 
-movePiece :: (Int, Int) -> (Int, Int) -> Chess ()
+movePiece :: Position -> Position -> Chess ()
 movePiece from to = do
   gameState <- get
-  if isLegalMove gameState from to
-   then do
-     let piece = board gameState ! from
-         updatedBoard  = setPiece (board gameState) to piece
-         updatedBoard' = setPiece updatedBoard from Empty
-     put gameState { board = updatedBoard' , selectedSquare = Nothing }
-   else return ()
+  let piece = getPiece (board gameState) from
+  case piece of
+    Occupied _ pieceColor -> when (isPlayerTurn gameState pieceColor && isLegalMove gameState from to) $ do
+       let updatedBoard  = setPiece (board gameState) to piece
+           updatedBoard' = setPiece updatedBoard from Empty
+           newState      = swapPlayer gameState { board = updatedBoard', selectedSquare = Nothing }
+       put newState
+    _ -> return ()
 
 main :: IO ()
 main = putStrLn "♔"
