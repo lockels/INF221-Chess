@@ -7,7 +7,7 @@ import Controller
 import Graphics.Gloss
 
 background :: Color
-background = white
+background = black 
 
 fps :: Int
 fps = 60

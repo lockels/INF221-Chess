@@ -76,9 +76,8 @@ drawBoardState images gameState = pictures
   [ drawSquareContents images square (i, j) 
   | ((i, j), square) <- assocs (board gameState) ]
 
-
 drawLegalMovesForPiece :: GameState -> Maybe Position -> Picture
-drawLegalMovesForPiece gamestate Nothing = blank
+drawLegalMovesForPiece _ Nothing = blank
 drawLegalMovesForPiece gamestate (Just pos) = pictures
   [ translate (fromIntegral j * squareSize - boardOffset) 
               (fromIntegral i * squareSize - boardOffset) 

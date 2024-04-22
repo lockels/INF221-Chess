@@ -1,9 +1,8 @@
-module Model where
+module Model where 
 
 import Piece
 import Control.Monad.Except
 import Data.Array
-import Control.Monad
 import Control.Monad.State
 
 data Square = Empty | Occupied PieceType PieceColor deriving (Eq, Ord)
@@ -17,6 +16,7 @@ data GameState = GameState
   , currentPlayer :: PieceColor
   , canCastleKingSide :: (Bool, Bool) -- White, Black
   , canCastleQueenSide :: (Bool, Bool) -- White, Black
+  , isCheck :: (Bool, Bool) -- White, Black
   , enPassant :: Maybe Position
   , selectedSquare :: Maybe Position
   , mouseCoordinates :: (Float, Float)
@@ -48,6 +48,7 @@ initialGameState = GameState
   , currentPlayer = White
   , canCastleKingSide = (True, True)
   , canCastleQueenSide = (True, True)
+  , isCheck = (False, False)
   , enPassant = Nothing
   , selectedSquare = Nothing
   , mouseCoordinates = (0, 0)
@@ -69,26 +70,57 @@ swapPlayer gameState = gameState { currentPlayer = nextPlayer }
 isPlayerTurn :: GameState -> PieceColor -> Bool
 isPlayerTurn gameState pieceColor = currentPlayer gameState == pieceColor
 
+isCurrentPlayerPiece :: GameState -> Position -> Bool
+isCurrentPlayerPiece gameState pos = case getPiece (board gameState) pos of
+  Occupied _ color -> color == currentPlayer gameState
+  Empty -> False
+
+movePiece :: Position -> Position -> Chess ()
+movePiece from to = do
+  gameState <- get
+  let piece = getPiece (board gameState) from
+  case piece of
+    Occupied _ pieceColor -> when (isPlayerTurn gameState pieceColor && isLegalMove gameState from to) $ do
+       let updatedBoard  = setPiece (board gameState) to piece
+           updatedBoard' = setPiece updatedBoard from Empty
+           newState      = swapPlayer gameState { board = updatedBoard', selectedSquare = Nothing }
+       put newState
+    _ -> return ()
+
+findKingPosition :: GameState -> PieceColor -> Position
+findKingPosition gameState color = head [pos | pos <- range ((0, 0), (7, 7)), isKing pos]
+  where
+    isKing pos = case getPiece (board gameState) pos of
+      Occupied King pieceColor -> pieceColor == color
+      _ -> False
+
+findPiecesByColor :: GameState -> PieceColor -> [Position]
+findPiecesByColor gameState color = [pos | pos <- range ((0, 0), (7, 7)), isPiece pos]
+  where
+    isPiece pos = case getPiece (board gameState) pos of
+      Occupied _ pieceColor -> pieceColor == color
+      _ -> False
+
 ----- Legal Moves -----
+
+legalMovesForPiece :: GameState -> Position -> [Position]
+legalMovesForPiece gameState from
+  | not $ isPlayerTurn gameState (currentPlayer gameState) = []
+  | not $ isCurrentPlayerPiece gameState from = []
+  | otherwise = filter (isLegalMove gameState from) (range ((0, 0), (7, 7)))
 
 isLegalMove :: GameState -> Position -> Position -> Bool
 isLegalMove gameState from to
-  | from == to = False
   | collidesWithOwnPiece gameState to = False
   | otherwise = case getPiece (board gameState) from of
-      Empty -> False
-      Occupied piece _ -> case piece of
-        Pawn   -> isLegalPawnMove gameState from to
-        Knight -> isLegalKnightMove gameState from to
-        Bishop -> isLegalBishopMove gameState from to
-        Rook   -> isLegalRookMove gameState from to
-        Queen  -> isLegalQueenMove gameState from to
-        King   -> isLegalKingMove gameState from to
-
-legalMovesForPiece :: GameState -> Position -> [Position]
-legalMovesForPiece gameState from 
-  | not $ isPlayerTurn gameState (currentPlayer gameState) = []
-  | otherwise =  filter (isLegalMove gameState from) (range ((0, 0), (7, 7)))
+    Empty -> False
+    Occupied piece _ -> case piece of
+      Pawn   -> isLegalPawnMove gameState from to
+      Knight -> isLegalKnightMove gameState from to
+      Bishop -> isLegalBishopMove gameState from to
+      Rook   -> isLegalRookMove gameState from to 
+      Queen  -> isLegalQueenMove gameState from to
+      King   -> isLegalKingMove gameState from to
 
 collidesWithOwnPiece :: GameState -> Position -> Bool
 collidesWithOwnPiece gameState to = case getPiece (board gameState) to of
@@ -144,7 +176,7 @@ isSquareEmpty :: Board -> Position -> Bool
 isSquareEmpty chessBoard pos = getPiece chessBoard pos == Empty
 
 isLegalKnightMove :: GameState -> Position -> Position -> Bool
-isLegalKnightMove gameState (x, y) (x', y')
+isLegalKnightMove _ (x, y) (x', y')
   | abs (x' - x) == 2 && abs (y' - y) == 1 = True
   | abs (x' - x) == 1 && abs (y' - y) == 2 = True
   | otherwise = False
@@ -163,6 +195,7 @@ isLegalQueenMove gameState from to =
   && isPathClear (board gameState) from to
 
 -- helper functions that define horizontal, vertical, and diagonal moves:
+
 isHorizontalMove :: Eq a => (a, b1) -> (a, b2) -> Bool
 isHorizontalMove (x, _) (x', _) = x == x'
 
@@ -177,17 +210,22 @@ isLegalKingMove gameState (x, y) (x', y')
   | abs (x' - x) <= 1 && abs (y' - y) <= 1 = True
   | otherwise = False
 
-movePiece :: Position -> Position -> Chess ()
-movePiece from to = do
-  gameState <- get
-  let piece = getPiece (board gameState) from
-  case piece of
-    Occupied _ pieceColor -> when (isPlayerTurn gameState pieceColor && isLegalMove gameState from to) $ do
-       let updatedBoard  = setPiece (board gameState) to piece
-           updatedBoard' = setPiece updatedBoard from Empty
-           newState      = swapPlayer gameState { board = updatedBoard', selectedSquare = Nothing }
-       put newState
-    _ -> return ()
+isInCeck :: GameState -> PieceColor -> Bool
+isInCeck gameState color = any (canCaptereKing gameState color) (findPiecesByColor gameState (oppositeColor color))
+
+-- helper functions that define check rules:
+
+canCaptereKing :: GameState -> PieceColor -> Position -> Bool
+canCaptereKing gameState color pos = case getPiece (board gameState) pos of
+  Occupied _ pieceColor ->
+    pieceColor == color &&
+    isLegalMove gameState pos (findKingPosition gameState (oppositeColor color))
+  _ -> False
+
+isCheckPosition :: GameState -> PieceColor -> Position -> Bool
+isCheckPosition gameState color pos = case getPiece (board gameState) pos of
+  Occupied _ pieceColor -> pieceColor == color && canCaptereKing gameState color pos
+  _ -> False
 
 main :: IO ()
 main = putStrLn "♔"
