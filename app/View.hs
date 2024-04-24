@@ -83,4 +83,4 @@ drawLegalMovesForPiece gamestate (Just pos) = pictures
               (fromIntegral i * squareSize - boardOffset) 
               $ color (makeColorI 0 255 0 255) 
               $ rectangleSolid squareSize squareSize
-  | (i, j) <- legalMovesForPiece gamestate pos ]
+  | (i, j) <- legalMovesForPiece gamestate pos True]
