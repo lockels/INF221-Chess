@@ -16,10 +16,8 @@ fps = 60
 window :: Display
 window = InWindow "INF221 Chess" boardSize (10 , 10)
 
-
 handleEventIO :: Event -> GameState -> IO GameState
 handleEventIO event gameState = do
-  -- Handle the player's event
   (result, newState) <- runChess (handleClick event >> handleRelease event >> handleMotion event) gameState
   case result of
     Right _ -> do

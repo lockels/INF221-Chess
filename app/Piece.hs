@@ -1,5 +1,10 @@
 module Piece where
 
+data Piece = Piece {
+  pieceColor :: PieceColor,
+  pieceType :: PieceType
+  } deriving (Eq, Ord)
+
 data PieceType = Pawn | Knight | Bishop | Rook | Queen | King deriving (Eq, Ord)
 
 data PieceColor = White | Black deriving (Eq, Ord)

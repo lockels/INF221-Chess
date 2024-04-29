@@ -22,10 +22,10 @@ boardHeight :: Float
 boardHeight = 8 * squareSize
 
 lightSquareColor :: Color
-lightSquareColor = makeColorI 233 174 95 255 
+lightSquareColor = makeColorI 233 174 95 255
 
 darkSquareColor :: Color
-darkSquareColor = makeColorI 142 71 0 255 
+darkSquareColor = makeColorI 142 71 0 255
 
 drawSquare :: Color -> (Float, Float) -> Picture
 drawSquare c (x, y) = translate x y $ color c $ rectangleSolid squareSize squareSize
@@ -39,7 +39,7 @@ drawBoard = pictures [ drawSquare (if even (i + j) then darkSquareColor else lig
 type PieceImages = Map.Map (PieceType, PieceColor) Picture
 
 loadPieceImages :: IO PieceImages
-loadPieceImages = do 
+loadPieceImages = do
   whitePawn   <- loadBMP "images/white-pawn.bmp"
   blackPawn   <- loadBMP "images/black-pawn.bmp"
   whiteKnight <- loadBMP "images/white-knight.bmp"
@@ -61,26 +61,26 @@ loadPieceImages = do
                          ]
 
 drawSquareContents :: PieceImages -> Square -> (Int, Int) -> Picture
-drawSquareContents images square (i, j) = 
+drawSquareContents images square (i, j) =
   case square of
-    Occupied pieceType pieceColor 
-      -> translate 
-         (fromIntegral j * squareSize - boardOffset) 
-         (fromIntegral i * squareSize - boardOffset) 
-         $ images Map.! (pieceType, pieceColor)
-    Empty 
+    Occupied piece
+      -> translate
+         (fromIntegral j * squareSize - boardOffset)
+         (fromIntegral i * squareSize - boardOffset)
+         $ images Map.! (pieceType piece, pieceColor piece)
+    Empty
       -> blank
 
 drawBoardState :: PieceImages -> GameState -> Picture
-drawBoardState images gameState = pictures 
-  [ drawSquareContents images square (i, j) 
+drawBoardState images gameState = pictures
+  [ drawSquareContents images square (i, j)
   | ((i, j), square) <- assocs (board gameState) ]
 
 drawLegalMovesForPiece :: GameState -> Maybe Position -> Picture
 drawLegalMovesForPiece _ Nothing = blank
 drawLegalMovesForPiece gamestate (Just pos) = pictures
-  [ translate (fromIntegral j * squareSize - boardOffset) 
-              (fromIntegral i * squareSize - boardOffset) 
-              $ color (makeColorI 0 255 0 255) 
+  [ translate (fromIntegral j * squareSize - boardOffset)
+              (fromIntegral i * squareSize - boardOffset)
+              $ color (makeColorI 0 255 0 255)
               $ rectangleSolid squareSize squareSize
   | (i, j) <- legalMovesForPiece gamestate pos True]

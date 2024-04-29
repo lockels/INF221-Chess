@@ -5,7 +5,7 @@ import Control.Monad.Except
 import Data.Array
 import Control.Monad.State
 
-data Square = Empty | Occupied PieceType PieceColor deriving (Eq, Ord)
+data Square = Empty | Occupied Piece deriving (Eq, Ord)
 
 type Board = Array Position Square
 
@@ -29,16 +29,16 @@ runChess chess = runStateT (runExceptT chess)
 
 instance Show Square where
   show Empty = "[]"
-  show (Occupied piece color) = show color ++ show piece
+  show (Occupied piece) = show (pieceColor piece) ++ show (pieceType piece)
 
 initialBoard :: Board
 initialBoard = array ((0, 0), (7, 7)) [((i, j), square i j) | i <- [0..7], j <- [0..7]]
   where
     square i j
-      | i == 1 = Occupied Pawn White
-      | i == 6 = Occupied Pawn Black
-      | i == 0 = Occupied (pieceOrder !! j) White
-      | i == 7 = Occupied (pieceOrder !! j) Black
+      | i == 1 = Occupied (Piece White Pawn)
+      | i == 6 = Occupied (Piece Black Pawn)
+      | i == 0 = Occupied (Piece White (pieceOrder !! j))
+      | i == 7 = Occupied (Piece Black (pieceOrder !! j))
       | otherwise = Empty
     pieceOrder = [Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook]
 
@@ -72,18 +72,18 @@ isPlayerTurn gameState pieceColor = currentPlayer gameState == pieceColor
 
 isCurrentPlayerPiece :: GameState -> Position -> Bool
 isCurrentPlayerPiece gameState pos = case getPiece (board gameState) pos of
-  Occupied _ color -> color == currentPlayer gameState
+  Occupied piece -> pieceColor piece == currentPlayer gameState
   Empty -> False
 
 movePiece :: Position -> Position -> Chess ()
 movePiece from to = do
   gameState <- get
-  let piece = getPiece (board gameState) from
-  case piece of
-    Occupied _ pieceColor -> when
-        (isPlayerTurn gameState pieceColor &&
+  let square = getPiece (board gameState) from
+  case square of
+    Occupied piece -> when
+        (pieceColor piece == currentPlayer gameState &&
          isLegalMove gameState from True to) $ do
-       let updatedBoard  = setPiece (board gameState) to piece
+       let updatedBoard  = setPiece (board gameState) to square
            updatedBoard' = setPiece updatedBoard from Empty
            newState      = swapPlayer gameState { board = updatedBoard', selectedSquare = Nothing }
            whiteInCheck  = isInCheck newState { currentPlayer = White }
@@ -92,19 +92,26 @@ movePiece from to = do
        put newState'
     _ -> return ()
 
-findKingPosition :: GameState -> PieceColor -> Position
-findKingPosition gameState color = head [pos | pos <- range ((0, 0), (7, 7)), isKing pos]
+findKingPosition :: Board -> PieceColor -> Position
+findKingPosition chessBoard color = head [pos | pos <- range ((0, 0), (7, 7)), isKing pos]
   where
-    isKing pos = case getPiece (board gameState) pos of
-      Occupied King pieceColor -> pieceColor == color
+    isKing pos = case getPiece chessBoard pos of
+      Occupied (Piece pieceColor King) -> pieceColor == color
       _ -> False
 
 findPiecesByColor :: Board -> PieceColor -> [Position]
 findPiecesByColor chessBoard color = [pos | pos <- range ((0, 0), (7, 7)), isPiece pos]
   where
     isPiece pos = case getPiece chessBoard pos of
-      Occupied _ pieceColor -> pieceColor == color
+      Occupied (Piece pieceColor _) -> pieceColor == color
       _ -> False
+
+allPieces :: Board -> [Position]
+allPieces chessBoard = [pos | pos <- range ((0, 0), (7, 7)), notEmpty pos]
+  where
+    notEmpty pos = case getPiece chessBoard pos of
+      Occupied _ -> True
+      Empty -> False
 
 inBounds :: Position -> Bool
 inBounds (x, y) = x >= 0 && x <= 7 && y >= 0 && y <= 7
@@ -122,7 +129,7 @@ isLegalMove gameState from includeKingCheck to
   | collidesWithOwnPiece gameState to || not (inBounds to) = False
   | otherwise = case getPiece (board gameState) from of
     Empty -> False
-    Occupied piece _ -> case piece of
+    Occupied (Piece _ pieceType) -> case pieceType of
       Pawn   -> isLegalPawnMove gameState from to
       Knight -> isLegalKnightMove gameState from to
       Bishop -> isLegalBishopMove gameState from to
@@ -135,7 +142,7 @@ isLegalMove gameState from includeKingCheck to
 collidesWithOwnPiece :: GameState -> Position -> Bool
 collidesWithOwnPiece gameState to = case getPiece (board gameState) to of
   Empty -> False
-  Occupied _ color -> color == currentPlayer gameState
+  Occupied piece -> pieceColor piece == currentPlayer gameState
 
 isPathClear :: Board -> Position -> Position -> Bool
 isPathClear chessBoard from to
@@ -162,7 +169,7 @@ isDiagonalPathClear chessBoard (x1, y1) (x2, y2) =
 
 isCapture :: GameState -> Position -> Bool
 isCapture gameState pos = case getPiece (board gameState) pos of
-  Occupied _ color -> color /= currentPlayer gameState
+  Occupied piece -> pieceColor piece /= currentPlayer gameState
   Empty -> False
 
 isLegalPawnMove :: GameState -> Position -> Position -> Bool
@@ -232,6 +239,7 @@ isLegalKingMove gameState from to =
       simulatedState = gameState { board = simulatedBoard, currentPlayer = kingColor }
   in to `elem` potentialMoves && not (isInCheck simulatedState)
 
+
 {- Function to simulate a move on the board. Useful for checking if the board is in a
    non-valid state before actually commiting to the move. -}
 simulateMove :: Board -> Position -> Position -> Board
@@ -250,7 +258,7 @@ getMovesIgnoringKing  gameState from = legalMovesForPiece gameState from False
 
 isInCheck :: GameState -> Bool
 isInCheck gameState =
-  let kingPos = findKingPosition gameState (currentPlayer gameState)
+  let kingPos = findKingPosition (board gameState) (currentPlayer gameState)
       opponentColor = if currentPlayer gameState == White then Black else White
       opponentPieces = findPiecesByColor (board gameState) opponentColor
       opponentMoves = concatMap (getMovesIgnoringKing gameState { currentPlayer = opponentColor }) opponentPieces
