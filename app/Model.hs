@@ -22,10 +22,10 @@ data GameState = GameState
   , mouseCoordinates :: (Float, Float)
   }
 
-type Chess a = ExceptT String (State GameState) a
+type Chess a = ExceptT String (StateT GameState IO) a
 
-runChess :: Chess a -> GameState -> (Either String a, GameState)
-runChess chess = runState (runExceptT chess)
+runChess :: Chess a -> GameState -> IO (Either String a, GameState)
+runChess chess = runStateT (runExceptT chess)
 
 instance Show Square where
   show Empty = "[]"
@@ -54,9 +54,6 @@ initialGameState = GameState
   , mouseCoordinates = (0, 0)
   }
 
-copyBoard :: Board -> Board
-copyBoard board = array ((0, 0), (7, 7)) [(pos, getPiece board pos) | pos <- range ((0, 0), (7, 7))]
-
 setPiece :: Board -> Position -> Square -> Board
 setPiece chessBoard pos piece = chessBoard // [(pos, piece)]
 
@@ -83,7 +80,7 @@ movePiece from to = do
   gameState <- get
   let piece = getPiece (board gameState) from
   case piece of
-    Occupied _ pieceColor -> when 
+    Occupied _ pieceColor -> when
         (isPlayerTurn gameState pieceColor &&
          isLegalMove gameState from True to) $ do
        let updatedBoard  = setPiece (board gameState) to piece
@@ -131,9 +128,9 @@ isLegalMove gameState from includeKingCheck to
       Bishop -> isLegalBishopMove gameState from to
       Rook   -> isLegalRookMove gameState from to
       Queen  -> isLegalQueenMove gameState from to
-      King   -> if includeKingCheck 
+      King   -> if includeKingCheck
                 then isLegalKingMove gameState from to
-                else isBasicKingMove from to ---filtering out the nested recursive calls checking wether the kings move is legal
+                else isBasicKingMove from to
 
 collidesWithOwnPiece :: GameState -> Position -> Bool
 collidesWithOwnPiece gameState to = case getPiece (board gameState) to of
@@ -229,7 +226,7 @@ isBasicKingMove (x, y) (x', y') =
 isLegalKingMove :: GameState -> Position -> Position -> Bool
 isLegalKingMove gameState from to =
   let kingColor = currentPlayer gameState
-      potentialMoves = filter inBounds 
+      potentialMoves = filter inBounds
         [(fst from + dx, snd from + dy) | dx <- [-1, 0, 1], dy <- [-1, 0, 1], not (dx == 0 && dy == 0)]
       simulatedBoard = simulateMove (board gameState) from to
       simulatedState = gameState { board = simulatedBoard, currentPlayer = kingColor }
@@ -244,9 +241,12 @@ simulateMove chessBoard from to =
       withMovedPiece = setPiece withoutPiece to piece
   in withMovedPiece
 
--- Function to get moves for all pieces except the king, to avoid nested recursion
+{- Function to get moves for all pieces except the king, used to avoid nested recursion
+   in the kings own move evaulaution. Delegates logic to legalMovesForPiece function.-}
 getMovesIgnoringKing :: GameState -> Position -> [Position]
 getMovesIgnoringKing  gameState from = legalMovesForPiece gameState from False
+---- point free flex :))
+-- getmovesignoringking' = flip flip false . legalmovesforpiece
 
 isInCheck :: GameState -> Bool
 isInCheck gameState =
@@ -255,6 +255,3 @@ isInCheck gameState =
       opponentPieces = findPiecesByColor (board gameState) opponentColor
       opponentMoves = concatMap (getMovesIgnoringKing gameState { currentPlayer = opponentColor }) opponentPieces
   in kingPos `elem` opponentMoves
-
-main :: IO ()
-main = putStrLn "♔"
