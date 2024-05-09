@@ -10,7 +10,6 @@ import Data.Array
 import Data.List (maximumBy, sortBy)
 import Data.Ord (comparing)
 import Control.Concurrent.Async
-import qualified Data.Map as Map
 
 type Depth = Int
 
@@ -36,19 +35,10 @@ evaluateBoard gameState =
     colorFactor color = if color == currentPlayer gameState then 1 else -1
 
 minimax :: GameState -> Depth -> Int -> Int -> Bool -> Chess Int
-minimax gameState depth alpha beta isMaximizingPlayer = do
-  memoizedResult <- memoLookup (gameState, depth, isMaximizingPlayer)
-  case memoizedResult of
-    Just value -> return value
-    Nothing -> do
-      if depth == 0 || isGameOver gameState
-        then do
-          let value = evaluateBoard gameState
-          memoInsert (gameState, depth, isMaximizingPlayer) value
-          return value
-        else if isMaximizingPlayer
-          then maximumValue gameState depth alpha beta
-          else minimumValue gameState depth alpha beta
+minimax gameState depth alpha beta isMaximizingPlayer
+  | depth == 0 || isGameOver gameState = return $ evaluateBoard gameState
+  | isMaximizingPlayer = maximumValue gameState depth alpha beta
+  | otherwise = minimumValue gameState depth alpha beta
 
 maximumValue :: GameState -> Depth -> Int -> Int -> Chess Int
 maximumValue gameState depth alpha beta = do
@@ -102,10 +92,10 @@ moveHeuristic gameState (from, to) =
                     Occupied p -> pieceValue (pieceType p)
                     Empty      -> 0
       toValue = case toSquare of
-                  Occupied p -> pieceValue (pieceType p)
+                  Occupied p -> pieceValue (pieceType p)  -- Value of the piece being captured, if any
                   Empty      -> 0
       captureBonus = case toSquare of
-                       Occupied _ -> 10
+                       Occupied _ -> 10  -- Add a bonus if it's a capture move
                        Empty      -> 0
   in fromValue + toValue + captureBonus
 
