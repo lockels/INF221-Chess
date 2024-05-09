@@ -97,7 +97,7 @@ test-suite chess-tests
 
     main-is:             Test.hs
 
-    hs-source-dirs:      app
+    hs-source-dirs:      test, app
 
     other-modules:       Model, Controller, Piece, AI
 
@@ -108,7 +108,8 @@ test-suite chess-tests
                          containers,
                          random,
                          stm,
-                         QuickCheck
+                         QuickCheck,
+                         async
 
     default-language:    Haskell2010
 

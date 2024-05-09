@@ -51,7 +51,7 @@ instance Arbitrary GameState where
       canCastleQueenSide = castleQ,
       isCheck = check,
       enPassant = enPass,
-      selectedSquare = selectedSq,
+      selectedSquare = selectedSq
     }
 
 arbitraryBoolPair :: Gen (Bool, Bool)

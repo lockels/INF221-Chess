@@ -58,7 +58,7 @@ aiMove gameStateVar = do
       Right _ -> do
         putMVar gameStateVar aiState
       Left errMsg -> do
-        hPutStrLn stderr $ "AI error: " ++ errMsg
+        hPutStrLn stderr $ "AI action error: " ++ errMsg
         putMVar gameStateVar gameState
     ) (\e -> do
         hPutStrLn stderr $ "Caught exception: " ++ show (e :: SomeException)
