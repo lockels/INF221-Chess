@@ -66,7 +66,7 @@ executable CHESSAI
                       View,
                       Controller,
                       Piece,
-                      AI
+                      AI,
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: OverloadedStrings,
@@ -82,9 +82,34 @@ executable CHESSAI
                  , containers
                  , random
                  , stm
+                 , QuickCheck
+                 , async
 
     -- Directories containing source files.
     hs-source-dirs:   app
 
     -- Base language which the package is written in.
     default-language: Haskell2010
+
+
+test-suite chess-tests
+    type:                exitcode-stdio-1.0
+
+    main-is:             Test.hs
+
+    hs-source-dirs:      app
+
+    other-modules:       Model, Controller, Piece, AI
+
+    build-depends:       base ^>=4.17.2.1,
+                         mtl,
+                         gloss,
+                         array,
+                         containers,
+                         random,
+                         stm,
+                         QuickCheck
+
+    default-language:    Haskell2010
+
+    ghc-options:         -threaded -rtsopts -with-rtsopts=-N

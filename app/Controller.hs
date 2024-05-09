@@ -43,7 +43,7 @@ handleRelease _ = return ()
 handleMotion :: Event ->  Chess ()
 handleMotion (EventMotion (x, y)) = do
   gameState <- get
-  put $ gameState { mouseCoordinates = (x, y) }
+  return ()
 handleMotion _ = return ()
 
 handleEvent :: Event -> GameState -> IO GameState

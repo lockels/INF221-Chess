@@ -19,8 +19,15 @@ data GameState = GameState
   , isCheck :: (Bool, Bool) -- White, Black
   , enPassant :: Maybe Position
   , selectedSquare :: Maybe Position
-  , mouseCoordinates :: (Float, Float)
   }
+
+instance Show GameState where
+    show gs = "GameState {currentPlayer = " ++ show (currentPlayer gs)
+          ++  ", canCastleKingSide = " ++ show (canCastleKingSide gs)
+          ++  ", canCastleQueenSide = " ++ show (canCastleQueenSide gs)
+          ++  ", isCheck = " ++ show (canCastleQueenSide gs)
+          ++  ", enPassant = " ++ show (enPassant gs)
+          ++  ", selectedSquare = " ++ show (selectedSquare gs)
 
 type Chess a = ExceptT String (StateT GameState IO) a
 
@@ -51,14 +58,15 @@ initialGameState = GameState
   , isCheck = (False, False)
   , enPassant = Nothing
   , selectedSquare = Nothing
-  , mouseCoordinates = (0, 0)
   }
 
 setPiece :: Board -> Position -> Square -> Board
 setPiece chessBoard pos piece = chessBoard // [(pos, piece)]
 
 getPiece :: Board -> Position -> Square
-getPiece chessBoard pos = chessBoard ! pos
+getPiece chessBoard pos 
+  | inBounds pos = chessBoard ! pos
+  | otherwise = Empty
 
 swapPlayer :: GameState -> GameState
 swapPlayer gameState = gameState { currentPlayer = nextPlayer }

@@ -1,0 +1,4 @@
+1. Documentation using haddock
+2. Write down the version of cabal and ghc used in the program
+3. (Important) Write what you could have done and reflect on the 
+   functional programming techniques that were used

@@ -3,9 +3,22 @@ module Main where
 import View
 import Model
 import Controller
+import AI (gameLoop, isAITurn)
+
 import Graphics.Gloss.Interface.IO.Game (playIO, Event)
 import Graphics.Gloss
-import AI (gameLoop)
+import Control.Monad (when, void)
+import Control.Concurrent (forkIO, threadDelay, MVar) 
+import Control.Concurrent.MVar (readMVar, newMVar, takeMVar, putMVar)
+import Control.Exception (catch, SomeException)
+import System.IO (hPutStrLn, stderr)
+
+main :: IO ()
+main = do
+    pieceImages <- loadPieceImages
+    let initialState = initialGameState
+    gameStateVar <- newMVar initialState
+    playIO window background fps (pieceImages, gameStateVar) renderFunction handleEventIO (const return)
 
 background :: Color
 background = black 
@@ -16,27 +29,46 @@ fps = 60
 window :: Display
 window = InWindow "INF221 Chess" boardSize (10 , 10)
 
-handleEventIO :: Event -> GameState -> IO GameState
-handleEventIO event gameState = do
-  (result, newState) <- runChess (handleClick event >> handleRelease event >> handleMotion event) gameState
-  case result of
-    Right _ -> do
-      -- After handling the player's event, run the game loop to check for AI's turn
-      (aiResult, aiState) <- runChess gameLoop newState
-      case aiResult of
-        Right _ -> return aiState
-        Left errMsg -> do
-          putStrLn $ "AI error: " ++ errMsg
-          return newState
-    Left errMsg -> do
-      putStrLn $ "Error: " ++ errMsg
-      return newState
+renderFunction :: (PieceImages, MVar GameState) -> IO Picture
+renderFunction (pieceImages, gameStateVar) = do
+    gameState <- readMVar gameStateVar
+    boardRender pieceImages gameState
 
-main :: IO ()
-main = do
-  pieceImages <- loadPieceImages
-  let boardRender gameState = return $ pictures [ drawBoard
-                                                , drawBoardState pieceImages gameState
-                                                , drawLegalMovesForPiece gameState (selectedSquare gameState)
-                                                , renderCoordinateText (mouseCoordinates gameState)]
-  playIO window background fps initialGameState boardRender handleEventIO (const return)
+handleEventIO :: Event -> (PieceImages, MVar GameState) -> IO (PieceImages, MVar GameState)
+handleEventIO event (pieceImages, gameStateVar) = do
+    gameState <- takeMVar gameStateVar
+    (result, newState) <- runChess (handleClick event >> handleRelease event >> handleMotion event) gameState
+    case result of
+        Right _ -> do
+            putMVar gameStateVar newState
+            when (isAITurn newState) $ void $ forkIO $ aiMove gameStateVar
+            return (pieceImages, gameStateVar)
+        Left errMsg -> do
+            putStrLn $ "Player action error: " ++ errMsg
+            putMVar gameStateVar gameState
+            return (pieceImages, gameStateVar)
+
+aiMove :: MVar GameState -> IO ()
+aiMove gameStateVar = do
+  threadDelay 100000
+  gameState <- takeMVar gameStateVar
+  catch (do
+    (aiResult, aiState) <- runChess gameLoop gameState
+    case aiResult of
+      Right _ -> do
+        putMVar gameStateVar aiState
+      Left errMsg -> do
+        hPutStrLn stderr $ "AI error: " ++ errMsg
+        putMVar gameStateVar gameState
+    ) (\e -> do
+        hPutStrLn stderr $ "Caught exception: " ++ show (e :: SomeException)
+        putMVar gameStateVar gameState
+      )
+
+boardRender :: PieceImages -> GameState -> IO Picture
+boardRender pieceImages gameState = return $ pictures
+    [ drawBoard
+    , drawBoardState pieceImages gameState
+    , drawLegalMovesForPiece gameState (selectedSquare gameState)
+    ]
+
