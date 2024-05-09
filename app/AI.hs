@@ -2,27 +2,18 @@ module AI where
 
 import Model
 import Piece
-import System.Random (randomRIO)
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Array
 import Data.List (maximumBy, sortBy)
 import Data.Ord (comparing)
-import Control.Concurrent.Async
+import qualified Data.HashMap.Strict as HS
+import PositionTable
 
-type Depth = Int
+-- type Depth = Int
 
 type Move = (Position, Position)
-
-pieceValue :: PieceType -> Int
-pieceValue piece = case piece of
-  Pawn   -> 1
-  Knight -> 3
-  Bishop -> 3
-  Rook   -> 5
-  Queen  -> 9
-  King   -> 1000
 
 -- Evaluate the board by summing up the value of all pieces
 evaluateBoard :: GameState -> Int
@@ -34,11 +25,48 @@ evaluateBoard gameState =
   where
     colorFactor color = if color == currentPlayer gameState then 1 else -1
 
+pieceValue :: PieceType -> Int
+pieceValue piece = case piece of
+  Pawn   -> 1
+  Knight -> 3
+  Bishop -> 3
+  Rook   -> 5
+  Queen  -> 9
+  King   -> 1000
+
+positionValue :: Position -> PieceType -> PieceColor -> Int
+positionValue pos ptype color = 
+  let baseTable = case ptype of
+        Pawn -> pawnTable
+        Knight -> knightTable
+        Bishop -> bishopTable
+        Rook -> rookTable
+        Queen -> queenTable
+        King -> kingTable
+  in if color == White
+     then baseTable ! pos
+     else baseTable ! mirrorPos pos
+
+mirrorPos :: Position -> Position
+mirrorPos (x, y) = (7 - x, y)
+
+----------- minimax ----------- 
+
 minimax :: GameState -> Depth -> Int -> Int -> Bool -> Chess Int
-minimax gameState depth alpha beta isMaximizingPlayer
-  | depth == 0 || isGameOver gameState = return $ evaluateBoard gameState
-  | isMaximizingPlayer = maximumValue gameState depth alpha beta
-  | otherwise = minimumValue gameState depth alpha beta
+minimax gameState depth alpha beta isMaximizingPlayer = do
+  let boardHash = hashBoard (board gameState)
+  let memoKey = (boardHash, depth, isMaximizingPlayer)
+  memo <- gets memoTable
+  case HS.lookup memoKey memo of
+    Just value -> return value
+    Nothing -> do
+      result <- if depth == 0 || isGameOver gameState
+                then return $ evaluateBoard gameState
+                else if isMaximizingPlayer
+                     then maximumValue gameState depth alpha beta
+                     else minimumValue gameState depth alpha beta
+      modify (\s -> s { memoTable = HS.insert memoKey result (memoTable s) })
+      return result
 
 maximumValue :: GameState -> Depth -> Int -> Int -> Chess Int
 maximumValue gameState depth alpha beta = do
@@ -68,7 +96,7 @@ minimumValue gameState depth alpha beta = do
 
 -- Placeholder for a function that checks if the game is over
 isGameOver :: GameState -> Bool
-isGameOver gameState = False
+isGameOver _ = False
 
 -- Function to simulate making a move and returning the new game state
 makeMove :: GameState -> Move -> GameState
@@ -102,7 +130,7 @@ moveHeuristic gameState (from, to) =
 bestMove :: Chess (Maybe Move)
 bestMove = do
   gameState <- get
-  let depth = 3
+  let depth = 6
   let isMaximizingPlayer = currentPlayer gameState == Black -- Assuming AI is Black
   moves <- allLegalMoves gameState
   scoredMoves <- forM moves $ \move -> do

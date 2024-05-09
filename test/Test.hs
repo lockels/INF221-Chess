@@ -36,23 +36,14 @@ instance Arbitrary Board where
     arbitrary = array ((0, 0), (7, 7)) <$> vectorOf 64 arbitrary
 
 instance Arbitrary GameState where
-  arbitrary = do
-    brd         <- arbitrary 
-    currentP    <- arbitrary
-    castleK     <- arbitraryBoolPair
-    castleQ     <- arbitraryBoolPair
-    check       <- arbitraryBoolPair
-    enPass      <- arbitraryMaybePosition
-    selectedSq  <- arbitraryMaybePosition
-    return GameState {
-      board = brd,
-      currentPlayer = currentP,
-      canCastleKingSide = castleK,
-      canCastleQueenSide = castleQ,
-      isCheck = check,
-      enPassant = enPass,
-      selectedSquare = selectedSq
-    }
+  arbitrary = GameState 
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitraryBoolPair
+    <*> arbitraryBoolPair
+    <*> arbitraryBoolPair
+    <*> arbitraryMaybePosition
+    <*> arbitraryMaybePosition
 
 arbitraryBoolPair :: Gen (Bool, Bool)
 arbitraryBoolPair = (,) <$> arbitrary <*> arbitrary

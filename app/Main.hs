@@ -50,7 +50,8 @@ handleEventIO event (pieceImages, gameStateVar) = do
 
 aiMove :: MVar GameState -> IO ()
 aiMove gameStateVar = do
-  threadDelay 100000
+  -- thread delay so that the interface is snappier
+  threadDelay 1000
   gameState <- takeMVar gameStateVar
   catch (do
     (aiResult, aiState) <- runChess gameLoop gameState

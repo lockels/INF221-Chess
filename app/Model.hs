@@ -1,15 +1,24 @@
+{-# LANGUAGE FlexibleInstances #-}
 module Model where
 
 import Piece
 import Control.Monad.Except
 import Data.Array
+import Data.List (foldl')
 import Control.Monad.State
+import Data.Hashable
+import qualified Data.HashMap.Strict as HS
+import Data.Bits (xor)
 
 data Square = Empty | Occupied Piece deriving (Eq, Ord)
 
 type Board = Array Position Square
 
 type Position = (Int, Int)
+
+type Depth = Int
+type MemoKey = (Int, Depth, Bool)  -- Simplified memo key using the hash of the board
+type Memo = HS.HashMap MemoKey Int
 
 data GameState = GameState
   { board :: Board
@@ -19,6 +28,7 @@ data GameState = GameState
   , isCheck :: (Bool, Bool) -- White, Black
   , enPassant :: Maybe Position
   , selectedSquare :: Maybe Position
+  , memoTable :: Memo
   }
 
 instance Show GameState where
@@ -28,6 +38,26 @@ instance Show GameState where
           ++  ", isCheck = " ++ show (canCastleQueenSide gs)
           ++  ", enPassant = " ++ show (enPassant gs)
           ++  ", selectedSquare = " ++ show (selectedSquare gs)
+
+instance Eq GameState where
+    gs1 == gs2 = board gs1 == board gs2
+           && currentPlayer gs1 == currentPlayer gs2
+           && canCastleKingSide gs1 == canCastleKingSide gs2
+           && canCastleQueenSide gs1 == canCastleQueenSide gs2
+           && isCheck gs1 == isCheck gs2
+           && enPassant gs1 == enPassant gs2
+           && selectedSquare gs1 == selectedSquare gs2
+
+
+instance Hashable Square where
+    hashWithSalt salt Empty = hashWithSalt salt (0 :: Int)
+    hashWithSalt salt (Occupied piece) = hashWithSalt salt piece
+
+hashBoard :: Board -> Int
+hashBoard b = foldl' (\acc idx -> acc `xor` hashWithSalt acc (b ! idx)) 0 (indices b)
+
+instance Hashable GameState where
+    hashWithSalt salt gs = hashWithSalt salt (hashBoard (board gs), currentPlayer gs)
 
 type Chess a = ExceptT String (StateT GameState IO) a
 
@@ -58,6 +88,7 @@ initialGameState = GameState
   , isCheck = (False, False)
   , enPassant = Nothing
   , selectedSquare = Nothing
+  , memoTable = HS.empty
   }
 
 setPiece :: Board -> Position -> Square -> Board

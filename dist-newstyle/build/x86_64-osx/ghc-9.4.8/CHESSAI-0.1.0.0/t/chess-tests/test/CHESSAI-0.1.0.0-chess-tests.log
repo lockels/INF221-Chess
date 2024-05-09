@@ -2,12 +2,12 @@ Test suite chess-tests: RUNNING...
 Testing swapPlayer...
 +++ OK, passed 100 tests.
 Testing isLegalPawnMove...
-*** Failed! Exception: 'Error in array index' (after 6 tests and 2 shrinks):
-GameState {currentPlayer = ⚪, canCastleKingSide = (False,False), canCastleQueenSide = (True,False), isCheck = (True,False), enPassant = Just (-2,3), selectedSquare = Just (2,-5)
+*** Failed! Exception: '(Array.!): undefined array element' (after 1 test):
+GameState {currentPlayer = ⚫, canCastleKingSide = (False,False), canCastleQueenSide = (False,True), isCheck = (False,True), enPassant = Just (0,0), selectedSquare = Nothing
 (0,0)
 Testing isLegalKnightMove...
-*** Failed! Exception: '(Array.!): undefined array element' (after 1 test):
-GameState {currentPlayer = ⚫, canCastleKingSide = (True,True), canCastleQueenSide = (False,True), isCheck = (False,True), enPassant = Just (0,0), selectedSquare = Just (0,0)
+*** Failed! Exception: 'Error in array index' (after 4 tests and 2 shrinks):
+GameState {currentPlayer = ⚪, canCastleKingSide = (True,False), canCastleQueenSide = (True,True), isCheck = (True,True), enPassant = Just (0,-2), selectedSquare = Just (-2,3)
 (0,0)
 Test suite chess-tests: PASS
 Test suite logged to: /Users/idris/Desktop/Programming/INF221/Project/dist-newstyle/build/x86_64-osx/ghc-9.4.8/CHESSAI-0.1.0.0/t/chess-tests/test/CHESSAI-0.1.0.0-chess-tests.log
