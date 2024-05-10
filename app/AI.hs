@@ -1,7 +1,7 @@
 module AI where
 
 import Model
-import Piece
+import Types
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Except
@@ -9,11 +9,19 @@ import Data.Array
 import Data.List (maximumBy, sortBy)
 import Data.Ord (comparing)
 import qualified Data.HashMap.Strict as HS
-import PositionTable
 
 -- type Depth = Int
 
 type Move = (Position, Position)
+
+pieceValue :: PieceType -> Int
+pieceValue piece = case piece of
+  Pawn   -> 1
+  Knight -> 3
+  Bishop -> 3
+  Rook   -> 5
+  Queen  -> 9
+  King   -> 1000
 
 -- Evaluate the board by summing up the value of all pieces
 evaluateBoard :: GameState -> Int
@@ -25,35 +33,10 @@ evaluateBoard gameState =
   where
     colorFactor color = if color == currentPlayer gameState then 1 else -1
 
-pieceValue :: PieceType -> Int
-pieceValue piece = case piece of
-  Pawn   -> 1
-  Knight -> 3
-  Bishop -> 3
-  Rook   -> 5
-  Queen  -> 9
-  King   -> 1000
+--- Minimax with memoization ---
 
-positionValue :: Position -> PieceType -> PieceColor -> Int
-positionValue pos ptype color = 
-  let baseTable = case ptype of
-        Pawn -> pawnTable
-        Knight -> knightTable
-        Bishop -> bishopTable
-        Rook -> rookTable
-        Queen -> queenTable
-        King -> kingTable
-  in if color == White
-     then baseTable ! pos
-     else baseTable ! mirrorPos pos
-
-mirrorPos :: Position -> Position
-mirrorPos (x, y) = (7 - x, y)
-
------------ minimax ----------- 
-
-minimax :: GameState -> Depth -> Int -> Int -> Bool -> Chess Int
-minimax gameState depth alpha beta isMaximizingPlayer = do
+minimax' :: GameState -> Depth -> Int -> Int -> Bool -> Chess Int
+minimax' gameState depth alpha beta isMaximizingPlayer = do
   let boardHash = hashBoard (board gameState)
   let memoKey = (boardHash, depth, isMaximizingPlayer)
   memo <- gets memoTable
@@ -67,6 +50,17 @@ minimax gameState depth alpha beta isMaximizingPlayer = do
                      else minimumValue gameState depth alpha beta
       modify (\s -> s { memoTable = HS.insert memoKey result (memoTable s) })
       return result
+
+{-- Minimax without memo, for some reason plays better.
+--- assuming the hashing function used for memo
+--- causes collisons and therefore faulty evaluation
+--} 
+
+minimax :: GameState -> Depth -> Int -> Int -> Bool -> Chess Int
+minimax gameState depth alpha beta isMaximizingPlayer
+  | depth == 0 || isGameOver gameState = return $ evaluateBoard gameState
+  | isMaximizingPlayer = maximumValue gameState depth alpha beta
+  | otherwise = minimumValue gameState depth alpha beta
 
 maximumValue :: GameState -> Depth -> Int -> Int -> Chess Int
 maximumValue gameState depth alpha beta = do
@@ -120,18 +114,18 @@ moveHeuristic gameState (from, to) =
                     Occupied p -> pieceValue (pieceType p)
                     Empty      -> 0
       toValue = case toSquare of
-                  Occupied p -> pieceValue (pieceType p)  -- Value of the piece being captured, if any
+                  Occupied p -> pieceValue (pieceType p) 
                   Empty      -> 0
       captureBonus = case toSquare of
-                       Occupied _ -> 10  -- Add a bonus if it's a capture move
+                       Occupied _ -> 10
                        Empty      -> 0
   in fromValue + toValue + captureBonus
 
 bestMove :: Chess (Maybe Move)
 bestMove = do
   gameState <- get
-  let depth = 6
-  let isMaximizingPlayer = currentPlayer gameState == Black -- Assuming AI is Black
+  let depth = 3
+  let isMaximizingPlayer = currentPlayer gameState == Black
   moves <- allLegalMoves gameState
   scoredMoves <- forM moves $ \move -> do
     let newState = makeMove gameState move

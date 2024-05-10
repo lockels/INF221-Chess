@@ -1,7 +1,7 @@
 module Main where
 
 import View
-import Model
+import Types
 import Controller
 import AI (gameLoop, isAITurn)
 
@@ -37,7 +37,7 @@ renderFunction (pieceImages, gameStateVar) = do
 handleEventIO :: Event -> (PieceImages, MVar GameState) -> IO (PieceImages, MVar GameState)
 handleEventIO event (pieceImages, gameStateVar) = do
     gameState <- takeMVar gameStateVar
-    (result, newState) <- runChess (handleClick event >> handleRelease event >> handleMotion event) gameState
+    (result, newState) <- runChess (handleClick event >> handleRelease event) gameState
     case result of
         Right _ -> do
             putMVar gameStateVar newState

@@ -2,7 +2,7 @@ module View where
 
 import Graphics.Gloss
 import Model
-import Piece
+import Types
 import Data.Array
 import qualified Data.Map as Map
 

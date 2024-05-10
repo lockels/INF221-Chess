@@ -4,7 +4,6 @@ module Main where
 
 import Test.QuickCheck
 import Model
-import Piece  
 import Data.Array
 import Control.Monad
 import Control.Monad.State

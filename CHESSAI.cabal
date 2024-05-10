@@ -65,9 +65,8 @@ executable CHESSAI
     other-modules:    Model,
                       View,
                       Controller,
-                      Piece,
                       AI,
-                      PositionTable
+                      Types
 
     -- LANGUAGE extensions used by modules in this package.
     other-extensions: OverloadedStrings,
@@ -102,7 +101,7 @@ test-suite chess-tests
 
     hs-source-dirs:      test
 
-    other-modules:       Model, Controller, Piece, AI
+    other-modules:       Model, Controller, AI
 
     build-depends:       base ^>=4.17.2.1,
                          mtl,

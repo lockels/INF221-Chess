@@ -2,6 +2,7 @@ module Controller where
 
 import Control.Monad.State
 import Graphics.Gloss
+import Types
 import Model
 import Graphics.Gloss.Interface.Pure.Game
 
@@ -39,21 +40,6 @@ handleRelease (EventKey (MouseButton LeftButton) Up _ (x, y)) = do
       movePiece from to
     Nothing -> return ()
 handleRelease _ = return ()
-
-handleMotion :: Event ->  Chess ()
-handleMotion (EventMotion (x, y)) = do
-  gameState <- get
-  return ()
-handleMotion _ = return ()
-
-handleEvent :: Event -> GameState -> IO GameState
-handleEvent event gameState = do
-  (result, newState) <- runChess (handleClick event >> handleRelease event >> handleMotion event) gameState
-  case result of
-    Right _ -> return newState
-    Left errMsg -> do
-      putStrLn $ "Error: " ++ errMsg
-      return newState
 
 mouseCoordinatesToString :: (Float, Float) -> String
 mouseCoordinatesToString (x, y) = "(" ++ show (round x :: Int) ++ ", "
